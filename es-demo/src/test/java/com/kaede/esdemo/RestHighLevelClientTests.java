@@ -18,6 +18,7 @@ import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.client.indices.CreateIndexRequest;
 import org.elasticsearch.client.indices.CreateIndexResponse;
 import org.elasticsearch.common.text.Text;
+import org.elasticsearch.common.util.CollectionUtils;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
@@ -27,7 +28,9 @@ import org.elasticsearch.search.aggregations.AggregationBuilders;
 import org.elasticsearch.search.aggregations.Aggregations;
 import org.elasticsearch.search.aggregations.bucket.terms.ParsedDoubleTerms;
 import org.elasticsearch.search.aggregations.bucket.terms.Terms;
+import org.elasticsearch.search.aggregations.metrics.Max;
 import org.elasticsearch.search.aggregations.metrics.ParsedMax;
+import org.elasticsearch.search.aggregations.metrics.ParsedMin;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightBuilder;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightField;
@@ -146,10 +149,11 @@ public class RestHighLevelClientTests {
         // 指定搜索索引
         SearchRequest searchRequest = new SearchRequest("products");
         // 指定的条件对象
-        SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
+        // SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
         // 查询所有(只需改变条件即可实现各种查询)
-        sourceBuilder.query(QueryBuilders.matchAllQuery());
-        searchRequest.source(sourceBuilder);
+        // sourceBuilder.query(QueryBuilders.matchAllQuery());
+        // searchRequest.source(sourceBuilder);
+        searchRequest.source().query(QueryBuilders.matchAllQuery());
         // 参数为搜索的请求对象和请求的配置对象
         SearchResponse searchResponse = restHighLevelClient.search(searchRequest, RequestOptions.DEFAULT);
         // 获取总条数
@@ -190,11 +194,7 @@ public class RestHighLevelClientTests {
     public void query(QueryBuilder queryBuilder) throws IOException {
         // 指定搜索索引
         SearchRequest searchRequest = new SearchRequest("products");
-        // 指定的条件对象
-        SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
-        // 只需改变条件即可实现各种查询
-        sourceBuilder.query(queryBuilder);
-        searchRequest.source(sourceBuilder);
+        searchRequest.source().query(queryBuilder);
         // 参数为搜索的请求对象和请求的配置对象
         SearchResponse searchResponse = restHighLevelClient.search(searchRequest, RequestOptions.DEFAULT);
         // 获取总条数
@@ -228,16 +228,13 @@ public class RestHighLevelClientTests {
     public void testPage() throws IOException {
         // 指定搜索索引
         SearchRequest searchRequest = new SearchRequest("products");
-        // 指定的条件对象
-        SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
-        sourceBuilder.query(QueryBuilders.matchAllQuery())
+        searchRequest.source().query(QueryBuilders.matchAllQuery())
             // 默认返回10条，降序排序
             .from(0)    // 指定起始位置
             .size(2)    // 指定每页展示记录数
             .sort("price", SortOrder.ASC)   // 指定排序的字段和规则
             //参数1为包含字段的数组，参数2为排除字段的数组
             .fetchSource(new String[]{"title", "description"}, new String[]{});
-        searchRequest.source(sourceBuilder);
         // 参数为搜索的请求对象和请求的配置对象
         SearchResponse searchResponse = restHighLevelClient.search(searchRequest, RequestOptions.DEFAULT);
         System.out.println("总条数: " + searchResponse.getHits().getTotalHits().value);
@@ -253,17 +250,14 @@ public class RestHighLevelClientTests {
     public void testHighlight() throws IOException {
         // 指定搜索索引
         SearchRequest searchRequest = new SearchRequest("products");
-        // 指定的条件对象
-        SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
         // 创建高亮器
         HighlightBuilder highlightBuilder = new HighlightBuilder();
         highlightBuilder.requireFieldMatch(false).field("*")
             .preTags("<span style=\"color:red\">")
             .postTags("</span>");
-        sourceBuilder.query(QueryBuilders.termQuery("description", "小浣熊"))
+        searchRequest.source().query(QueryBuilders.termQuery("description", "小浣熊"))
             .fetchSource(new String[]{"title", "description"}, new String[]{})
             .highlighter(highlightBuilder);  // 高亮搜索结果
-        searchRequest.source(sourceBuilder);
         // 参数为搜索的请求对象和请求的配置对象
         SearchResponse searchResponse = restHighLevelClient.search(searchRequest, RequestOptions.DEFAULT);
         System.out.println("总条数: " + searchResponse.getHits().getTotalHits().value);
@@ -284,13 +278,10 @@ public class RestHighLevelClientTests {
     public void testFilterQuery() throws IOException {
         // 指定搜索索引
         SearchRequest searchRequest = new SearchRequest("products");
-        // 指定的条件对象
-        SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
-        sourceBuilder.query(QueryBuilders.matchAllQuery())
+        searchRequest.source().query(QueryBuilders.matchAllQuery())
             // 指定过滤条件
             .postFilter(QueryBuilders.rangeQuery("price").gt(1).lte(2))
             .postFilter(QueryBuilders.existsQuery("title"));
-        searchRequest.source(sourceBuilder);
         // 参数为搜索的请求对象和请求的配置对象
         SearchResponse searchResponse = restHighLevelClient.search(searchRequest, RequestOptions.DEFAULT);
         System.out.println("总条数: " + searchResponse.getHits().getTotalHits().value);
@@ -321,9 +312,7 @@ public class RestHighLevelClientTests {
     @Test
     public void testSearch() throws IOException {
         SearchRequest searchRequest = new SearchRequest("products");
-        SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
-        sourceBuilder.query(QueryBuilders.matchAllQuery());
-        searchRequest.source(sourceBuilder);
+        searchRequest.source().query(QueryBuilders.matchAllQuery());
         SearchResponse searchResponse = restHighLevelClient.search(searchRequest, RequestOptions.DEFAULT);
         System.out.println("总条数: " + searchResponse.getHits().getTotalHits().value);
         System.out.println("最大得分: " + searchResponse.getHits().getMaxScore());
@@ -339,14 +328,12 @@ public class RestHighLevelClientTests {
     @Test
     public void testSearch2() throws IOException {
         SearchRequest searchRequest = new SearchRequest("products");
-        SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
         HighlightBuilder highlightBuilder = new HighlightBuilder();
         highlightBuilder.requireFieldMatch(false).field("title").field("description")
             .preTags("<span style=\"color:red\">").postTags("</span>");
-        sourceBuilder.query(QueryBuilders.termQuery("description", "小浣熊"))
+        searchRequest.source().query(QueryBuilders.termQuery("description", "小浣熊"))
             .fetchSource(new String[]{}, new String[]{"price"})
             .highlighter(highlightBuilder);
-        searchRequest.source(sourceBuilder);
         SearchResponse searchResponse = restHighLevelClient.search(searchRequest, RequestOptions.DEFAULT);
         System.out.println("总条数: " + searchResponse.getHits().getTotalHits().value);
         System.out.println("最大得分: " + searchResponse.getHits().getMaxScore());
@@ -373,16 +360,15 @@ public class RestHighLevelClientTests {
     @Test   
     public void testAggsGroup() throws IOException {
         SearchRequest searchRequest = new SearchRequest("fruit");
-        SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
-        sourceBuilder.aggregation(AggregationBuilders.terms("price_group").field("price"))
+        searchRequest.source().size(0).aggregation(
+            AggregationBuilders.terms("price_group").field("price").size(10))
             // 聚合时若不添加查询条件，默认查询所有
             .query(QueryBuilders.matchAllQuery());
-        searchRequest.source(sourceBuilder);
         SearchResponse searchResponse = restHighLevelClient.search(searchRequest, RequestOptions.DEFAULT);
         // 处理聚合的结果
         Aggregations aggregations = searchResponse.getAggregations();
-        // 根据不同的字段类型指定不同的返回类型，ParsedXxx
-        ParsedDoubleTerms priceGroup = aggregations.get("price_group");
+        // 根据名称获取聚合结果
+        Terms priceGroup = aggregations.get("price_group");
         List<? extends Terms.Bucket> buckets = priceGroup.getBuckets();
         buckets.forEach(bucket -> {
             System.out.println(bucket.getKey() + ": " + bucket.getDocCount());
@@ -393,9 +379,7 @@ public class RestHighLevelClientTests {
     @Test
     public void testAggsMax() throws IOException {
         SearchRequest searchRequest = new SearchRequest("fruit");
-        SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
-        sourceBuilder.aggregation(AggregationBuilders.max("price_max").field("price"));
-        searchRequest.source(sourceBuilder);
+        searchRequest.source().aggregation(AggregationBuilders.max("price_max").field("price"));
         SearchResponse searchResponse = restHighLevelClient.search(searchRequest, RequestOptions.DEFAULT);
         // 处理聚合的结果
         Aggregations aggregations = searchResponse.getAggregations();
